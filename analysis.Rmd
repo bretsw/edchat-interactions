@@ -1,0 +1,492 @@
+---
+title: "Twitter Edchat Inbteractions Project Analysis"
+author: "K. Bret Staudt Willet"
+date: "6/10/2019"
+output: 
+    html_document:
+        toc: true
+        float_toc: true
+---
+
+# Get set up
+
+This section loads the data and packages and starts to process the data, but doesn't calculate any statistics or create any results.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+usethis::use_git_ignore(c("*.csv", "*.rds"))
+```
+
+## Load packages
+
+```{r, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(rtweet)
+library(igraph)
+```
+
+## Load the data
+
+Having completed the steps in the setup.Rmd file, you now have the dataset stored in your local repository and can load it as usual. This project uses Twitter #Edchat data that have been run through the `rtweet` R package, which queries the Twitter API to return the most complete set of tweet metadata available, while also removing deleted and protected tweets. See https://rtweet.info/ for details on `rtweet`.
+
+```{r, include=FALSE}
+edchat <- read.csv("edchat_rtweet_df.csv", 
+                   header=TRUE, 
+                   colClasses= c(status_id='character',
+                                 reply_to_status_id='character',
+                                 user_id='character',
+                                 reply_to_user_id='character',
+                                 text='character'
+                                 )
+                   ) %>%
+    filter(protected==FALSE)
+```
+
+# Data analysis
+
+## RQ1. What does participation in Twitter #Edchat look like?
+
+*Time frame*
+
+```{r, include=TRUE, echo=FALSE}
+time_start <- edchat$created_at %>% ymd_hms() %>% min()
+time_end <- edchat$created_at %>% ymd_hms() %>% max()
+n_months <- (time_end - time_start) %>% time_length(unit="months")
+
+paste("Tweets from", date(time_start), 
+      "to", date(time_end), 
+      "(", round(n_months, 2), "months )")
+```
+
+*Number of tweets and tweeters*
+
+```{r, include=TRUE, echo=FALSE}
+n_tweets <- edchat$status_id %>% unique() %>% length()
+n_tweeters <- edchat$user_id %>% unique() %>% length()
+paste("Number of unique tweets:", n_tweets)
+paste("Number of unique tweeters:", n_tweeters)
+```
+
+*Tweets per month per user*
+
+```{r, include=TRUE, echo=FALSE}
+time_start <- edchat$created_at %>% ymd_hms() %>% min()
+time_end <- edchat$created_at %>% ymd_hms() %>% max()
+n_months <- (time_end - time_start) %>% time_length(unit="months")
+
+paste("Tweets per month per user:", round(n_tweets / n_months / n_tweeters, 2))
+```
+
+```{r, include=TRUE, echo=FALSE}
+freq_tweeters <- edchat %>% 
+    pull(user_id) %>% 
+    table() %>% 
+    as.data.frame() %>% 
+    rename(user_id = ".",
+           tweets_made_edchat = Freq) %>%
+    mutate(tweets_per_month = round(tweets_made_edchat / n_months, 2)) %>%
+    arrange(desc(tweets_per_month))
+
+monthly_tweets_mean <- freq_tweeters$tweets_per_month %>% mean %>% round(2)
+monthly_tweets_sd <- freq_tweeters$tweets_per_month %>% sd %>% round(2)
+monthly_tweets_median <- freq_tweeters$tweets_per_month %>% median %>% round(2)
+monthly_tweets_min <- freq_tweeters$tweets_per_month %>% min %>% round(2)
+monthly_tweets_max <- freq_tweeters$tweets_per_month %>% max %>% round(2)
+
+paste("Tweets per month per user:")
+paste("Mean =", monthly_tweets_mean)
+paste("Standard Deviation =", monthly_tweets_sd)
+paste("Median =", monthly_tweets_median)
+paste("Range =", monthly_tweets_min, "to", monthly_tweets_max)
+```
+
+*Minimal participation.* Look at one-time tweeters.
+
+```{r, include=TRUE, echo=FALSE}
+one_timers <- freq_tweeters %>% filter(tweets_made_edchat==1)
+paste("Tweeters who contributed only one tweet to #Edchat:", 
+      nrow(one_timers),
+      "(", round(100 * nrow(one_timers) / n_tweeters, 2), "% )"
+      )
+```
+
+```{r, include=TRUE, echo=FALSE}
+freq_tweeters_RT <- edchat %>% 
+    filter(is_retweet) %>%
+    pull(user_id) %>% 
+    table() %>% 
+    as.data.frame() %>% 
+    rename(user_id = ".",
+           retweets_made_edchat = Freq) %>%
+    mutate(retweets_per_month = round(retweets_made_edchat / n_months, 2)) %>%
+    arrange(desc(retweets_per_month))
+
+RT_only <- freq_tweeters_RT %>% nrow()
+paste("Tweeters who contributed only by retweeting #Edchat tweets:", 
+      RT_only,
+      "(", round(100 * RT_only / n_tweeters, 2), "% )"
+      )
+
+one_timers_RT_only <- freq_tweeters_RT %>% filter(retweets_made_edchat==1)
+paste("Tweeters who contributed only one retweet to #Edchat:", 
+      nrow(one_timers_RT_only),
+      "(", round(100 * nrow(one_timers_RT_only) / n_tweeters, 2), "% )"
+      )
+```
+
+*Remove retweets*
+
+```{r, include=TRUE, echo=FALSE}
+n_tweets_no_RT <- edchat %>% 
+    filter(!is_retweet) %>% 
+    pull(status_id) %>% 
+    unique() %>% 
+    length()
+n_tweeters_no_RT <- edchat %>%
+    filter(!is_retweet) %>% 
+    pull(user_id) %>% 
+    unique() %>% 
+    length()
+paste("Number of unique tweets (no retweets):", n_tweets_no_RT)
+paste("Number of unique tweeters (no retweets):", n_tweeters_no_RT)
+
+freq_tweeters_no_RT <- edchat %>% 
+    filter(!is_retweet) %>%
+    pull(user_id) %>% 
+    table() %>% 
+    as.data.frame() %>% 
+    rename(user_id = ".",
+           tweets_made_edchat = Freq) %>%
+    mutate(tweets_per_month = round(tweets_made_edchat / n_months, 2)) %>%
+    arrange(desc(tweets_per_month))
+
+monthly_tweets_mean_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% mean %>% round(2)
+monthly_tweets_sd_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% sd %>% round(2)
+monthly_tweets_median_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% median %>% round(2)
+monthly_tweets_min_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% min %>% round(2)
+monthly_tweets_max_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% max %>% round(2)
+
+paste("Tweets per month per user (no retweets):")
+paste("Mean =", monthly_tweets_mean_no_RT)
+paste("Standard Deviation =", monthly_tweets_sd_no_RT)
+paste("Median =", monthly_tweets_median_no_RT)
+paste("Range =", monthly_tweets_min_no_RT, "to", monthly_tweets_max_no_RT)
+```
+
+*Minimal participation.* Look at one-time tweeters (no retweets).
+
+```{r, include=TRUE, echo=FALSE}
+one_timers_no_RT <- freq_tweeters_no_RT %>% filter(tweets_made_edchat==1)
+paste("Tweeters who contributed only one tweet to #Edchat (no retweets):", 
+      nrow(one_timers_no_RT),
+      "(", round(100 * nrow(one_timers_no_RT) / n_tweeters_no_RT, 2), "% )"
+      )
+```
+
+## RQ2. How are participants connected to each other in #Edchat? 
+
+Continue looking at #Edchat tweet corpus minus retweets.
+
+**RQ2a**: Replies 
+
+First, calculate descriptive statistics for replies-per-tweeter.
+
+```{r, include=FALSE}
+freq_replies <- edchat %>% 
+    filter(!is_retweet) %>%
+    pull(reply_to_status_id) %>% 
+    table() %>% 
+    as.data.frame() %>% 
+    rename(status_id = ".",
+           reply_count = Freq) %>%
+    arrange(desc(reply_count))
+
+replies_mean <- freq_replies$reply_count %>% mean %>% round(2)
+replies_sd <- freq_replies$reply_count %>% sd %>% round(2)
+replies_median <- freq_replies$reply_count %>% median %>% round(2)
+replies_min <- freq_replies$reply_count %>% min %>% round(2)
+replies_max <- freq_replies$reply_count %>% max %>% round(2)
+
+paste("Replies-per-tweeter statistics:")
+paste(n_tweeters_no_RT - nrow(freq_replies), "did not reply to anyone.")
+paste("Mean =", replies_mean)
+paste("Standard Deviation =", replies_sd)
+paste("Median =", replies_median)
+paste("Range =", replies_min, "to", replies_max)
+
+round((100 * (n_tweeters_no_RT - nrow(freq_replies)) / n_tweeters_no_RT), 2)
+```
+
+**RQ2b: Following/Followers Ratio**
+
+```{r, include=FALSE}
+hashtag_regex <- "#([0-9]|[a-zA-Z])+"
+url_regex <- "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+
+# 25,638 tweeters in edchat_with_replies
+# 95 of these have no one following them (edchat_with_replies$followers_count == 0)
+# 631 of these are not following anyone (edchat_with_replies$friends_count == 0) 
+
+edchat_with_replies <- edchat %>% 
+    filter(!is_retweet) %>%
+    full_join(freq_replies, by='status_id') %>% 
+    mutate(reply_count = ifelse(is.na(reply_count), 0, reply_count)) %>%
+    filter(!is.na(user_id)) %>% 
+    rename(profile_description = description) %>% 
+    mutate(hashtag_count = str_count(text, hashtag_regex),
+           hashtag_inclusion = ifelse(hashtag_count==0, 0, 1),
+           url_count = str_count(text, url_regex),
+           url_inclusion = ifelse(url_count==0, 0, 1),
+           following_ratio = ifelse(followers_count==0,
+                                    NA,
+                                    friends_count / followers_count)
+           )
+```
+
+Calculate descriptive statistics for Following/Followers Ratio.
+
+```{r, include=FALSE}
+following_ratios <- edchat_with_replies %>%
+    distinct(user_id, .keep_all = TRUE) %>%
+    pull(following_ratio)
+
+following_ratio_mean <- following_ratios[which(!is.na(following_ratios))] %>% mean %>% round(2)
+following_ratio_sd <- following_ratios[which(!is.na(following_ratios))] %>% sd %>% round(2)
+following_ratio_median <- following_ratios[which(!is.na(following_ratios))] %>% median %>% round(2)
+following_ratio_min <- following_ratios[which(!is.na(following_ratios))] %>% min %>% round(2)
+following_ratio_max <- following_ratios[which(!is.na(following_ratios))] %>% max %>% round(2)
+
+paste("Following ratio statistics:")
+paste(length(which(following_ratios==0)), "are not following anyone.")
+paste(length(which(is.na(following_ratios))), "have zero followers.")
+paste("Mean =", following_ratio_mean)
+paste("Standard Deviation =", following_ratio_sd)
+paste("Median =", following_ratio_median)
+paste("Range =", following_ratio_min, "to", following_ratio_max)
+```   
+
+Second, reconstruct threads of replies extending beyond #Edchat, starting by looking up tweets that have been replied to but are not in #Edchat.
+
+```{r, include=FALSE}
+all_replies <- edchat %>% filter(!is_retweet) %>% filter(!is.na(reply_to_status_id))
+known_replies <- all_replies %>% filter(reply_to_status_id %in% edchat_expanded$status_id)
+unknown_replies <- all_replies %>% filter(!(reply_to_status_id %in% edchat_expanded$status_id))
+
+paste("Total tweets:", nrow(edchat_expanded)); paste("All replies:", nrow(all_replies)); paste("Known:", nrow(known_replies)); paste("Unknown:", nrow(unknown_replies))
+
+## Just run once: very time consuming process. Takes 117 iterations, left with 291 unknown tweets.
+#edchat_expanded <- edchat %>% filter(!is_retweet)
+#new_tweets = unknown_replies
+#i = 0; paste(i)
+#
+#while(nrow(new_tweets) > 0) {
+#    i = i +1; print(i)
+#    new_tweets = unknown_replies$reply_to_status_id %>% 
+#        lookup_tweets() %>%
+#        flatten()
+#    edchat_expanded <- rbind(edchat_expanded, new_tweets) 
+#    
+#    all_replies <- edchat_expanded %>% filter(!is.na(reply_to_status_id))
+#    unknown_replies <- all_replies %>% filter(!(reply_to_status_id %in% edchat_expanded$status_id))
+#    print("New tweets:"); print(nrow(new_tweets))
+#    print("Unknown replies:"); print(nrow(unknown_replies))
+#}
+#
+#write.csv(edchat_expanded, "edchat_expanded.csv", row.names=FALSE)
+```
+
+```{r, include=TRUE, echo=FALSE}
+edchat_expanded <- read.csv("edchat_expanded.csv", 
+                            header=TRUE, 
+                            colClasses= c(status_id='character',
+                                          reply_to_status_id='character',
+                                          user_id='character',
+                                          reply_to_user_id='character',
+                                          text='character'
+                                          )
+                            )
+```
+
+
+
+```{r, include=TRUE, echo=FALSE}
+edchat_expanded <- edchat_expanded %>% 
+    mutate(is_head = ifelse(is.na(reply_to_status_id) & 
+                             (status_id %in% edchat_with_replies$reply_to_status_id),
+                         TRUE, 
+                         FALSE),
+           is_tail = ifelse(!is.na(reply_to_status_id) & 
+                             !(status_id %in% edchat_with_replies$reply_to_status_id),
+                         TRUE, 
+                         FALSE),
+           text = as.character(text)
+           )
+all_replies <- edchat_expanded %>% filter(!is.na(reply_to_status_id))
+known_replies <- all_replies %>% filter(reply_to_status_id %in% edchat_expanded$status_id)
+unknown_replies <- all_replies %>% filter(!(reply_to_status_id %in% edchat_expanded$status_id))
+
+paste("Total tweets:", nrow(edchat_expanded)); paste("All replies:", nrow(all_replies)); paste("Known replies:", nrow(known_replies)); paste("Unavailable replies:", nrow(unknown_replies)); paste("Number of thread heads:", length(which(edchat_expanded$is_head))); paste("Number of thread tails:", length(which(edchat_expanded$is_tail)))
+```
+
+
+
+```{r, include=TRUE}
+
+## What proportion of replies have #Edchat hashtag?
+
+## Length of reply threads?
+
+
+```
+
+Next, create the network graph of #Edchat replies using the `igraph` package.
+
+```{r, include=TRUE}
+reply_graph <- known_replies %>% 
+        select(user_id, reply_to_user_id) %>%
+        as.matrix() %>%
+        graph_from_edgelist(directed=TRUE) %>% 
+        set_vertex_attr(name='degree', value=degree(., mode='total', loops=FALSE))
+#reply_graph %>% summary()
+```
+
+Then calculate network statistics.
+
+```{r, include=TRUE}
+## size
+reply_graph %>% V() %>% length()  # number of vertices/nodes
+reply_graph %>% gsize()  # number of edges
+#reply_graph %>% diameter(directed=TRUE, unconnected=TRUE)  # the length of the longest geodesic (max distance between two vertices)
+
+(reply_graph %>% transitivity("global") * 100) %>% round(2)  
+## The balance of connections. Also called the clustering coefficient.
+## The probability that the adjacent vertices of a vertex are connected. 
+## When the clustering coefficient is large it implies that a graph is highly clustered around a few nodes, 
+## When it is low it implies that the links in the graph are relatively evenly spread among all the nodes. (Hogan, 2017)
+
+
+(reply_graph %>% reciprocity * 100) %>% round(2)  
+## The proportion of mutual connections (in a directed network).
+## The probability that the opposite counterpart of a directed edge is also included in the graph.
+
+
+## average connectedness
+reply_graph %>% vertex_attr('degree') %>% mean() %>% round(2)
+reply_graph %>% vertex_attr('degree') %>% sd() %>% round(2)
+reply_graph %>% vertex_attr('degree') %>% median()
+reply_graph %>% vertex_attr('degree') %>% min()
+reply_graph %>% vertex_attr('degree') %>% max()
+```
+
+Visualization with Gephi
+
+```{r, include=TRUE}
+replies_edgelist <- known_replies %>% 
+        select(user_id, reply_to_user_id) %>%
+        filter(user_id != reply_to_user_id) %>% 
+        rename(Source = user_id,
+               Target = reply_to_user_id) %>%
+        as.matrix() 
+#write.csv(replies_edgelist, "replies_edgelist.csv", row.names=FALSE)
+#dim(replies_edgelist)
+```
+
+Visualization with igraph in R
+
+```{r, include=TRUE}
+replies_graph_viz <- known_replies %>% 
+        select(user_id, reply_to_user_id)%>%
+        filter(user_id != reply_to_user_id) %>%  
+        as.matrix() %>% 
+        graph_from_edgelist(directed=TRUE) %>% 
+        set_vertex_attr(name='degree', value=degree(., mode='total', loops=FALSE))
+#subreddit_graph_viz %>% summary()
+#subreddit_graph %>% summary()
+
+layout <- replies_graph_viz %>% create_layout(layout = 'drl') 
+
+ggraph(layout) +
+        geom_edge_link(alpha = .2, width=.3) +
+        geom_node_point(alpha=.2, size=1) +
+        theme_bw() +  # makes background white (not gray)
+        theme(plot.background = element_blank(),
+              panel.grid.major = element_blank(),
+              panel.grid.minor = element_blank(),
+              panel.border = element_blank(),
+              axis.title = element_blank(),
+              axis.text = element_blank(),
+              axis.ticks = element_blank(),
+              legend.position="none"
+        )
+#ggsave("r-output/edchat_network_visualization_in_R.png", width = 1 * 10, height = 1 * 10)
+```
+
+Thread-Building from Bob Rudis (see https://rud.is/b/2018/01/15/cant-stop-at-21-twitter-recipe-22-tying-up-loose-threads/).
+
+```{r, include=TRUE}
+threads_dfs <- igraph::decompose(reply_graph) %>%
+    purrr::map(igraph::as_data_frame)
+
+```
+
+
+
+
+
+
+
+
+
+```{r, include=FALSE}
+    mutate(like_mean = mean(favorite_count),
+           retweet_mean = retweet_count[!is.na(retweet_count)] %>% mean(),
+           reply_mean = mean(reply_count),
+           hashtag_total = sum(hashtag_count),
+           hashtag_mean = mean(hashtag_count),
+           url_total = sum(url_count),
+           url_mean = mean(url_count),
+           tweets_with_hashtags = (sum(hashtag_inclusion) / n()) * 100,
+           tweets_with_url = (sum(url_inclusion) / n()) * 100
+              ) %>%
+    slice(1) %>%
+    full_join(freq_tweeters, by='user_id') %>%
+    select(user_id, screen_name,
+           tweets_made_all, tweets_made_edchat,
+           z, edchat_prop,
+           like_mean, retweet_mean, reply_mean,
+           following_ratio, friends_count, followers_count,
+           hashtag_total, hashtag_mean, tweets_with_hashtags, 
+           url_total, url_mean, tweets_with_url,
+           tweets_liked_all,
+           source, verified,
+           profile_description, profile_url
+           ) %>%
+    arrange(desc(z))
+
+write.csv(edchat_tweeters, "edchat_tweeters.csv", row.names=FALSE)
+```
+
+```{r, include=FALSE}
+edchat_tweeters <- read.csv("edchat_tweeters.csv", 
+                            header=TRUE, 
+                            colClasses= c(status_id='character',
+                                          reply_to_status_id='character',
+                                          user_id='character',
+                                          reply_to_user_id='character',
+                                          text='character'
+                                          )
+                            )
+```
+
+
+*Level of interaction*: Because spammers tend to broadcast messages, which others frequently ignore (Lin & Huang, 2013), spam accounts can also be identified by the absence of interaction with others. Relatively easy metrics researchers can use to measure interaction is to examine the extent to which a users’ tweets result in likes, retweets, and replies.
+
+*Following vs. followers*: Spammers often follow many other users, but themselves have relatively low number of followers. Researchers can quickly measure this phenomenon by calculating the ratio of following to followers for users in their dataset.
+
+*Hashtags and hyperlinks*: Many spammers share hyperlinks in an attempt to drive traffic to certain websites (e.g., Lin & Huang, 2013) For instance, a tweet might advertise goods for sale and include a hyperlink to the website where the actual purchase would occur. Researchers can therefore analyze the raw number of links, the percentage of tweets that contain a link, or the average number of links per tweet.
+
+
+## RQ3: What are participants talking about with each other in #Edchat?
+
+
