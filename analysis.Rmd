@@ -23,6 +23,7 @@ usethis::use_git_ignore(c("*.csv", "*.rds"))
 library(tidyverse)
 library(lubridate)
 library(rtweet)
+library(compute.es)
 library(igraph)
 ```
 
@@ -64,8 +65,7 @@ paste("Tweets from", date(time_start),
 ```{r, include=TRUE, echo=FALSE}
 n_tweets <- edchat$status_id %>% unique() %>% length()
 n_tweeters <- edchat$user_id %>% unique() %>% length()
-paste("Number of unique tweets:", n_tweets)
-paste("Number of unique tweeters:", n_tweeters)
+paste("Number of unique tweets:", n_tweets); paste("Number of unique tweeters:", n_tweeters)
 ```
 
 *Tweets per month per user*
@@ -94,11 +94,7 @@ monthly_tweets_median <- freq_tweeters$tweets_per_month %>% median %>% round(2)
 monthly_tweets_min <- freq_tweeters$tweets_per_month %>% min %>% round(2)
 monthly_tweets_max <- freq_tweeters$tweets_per_month %>% max %>% round(2)
 
-paste("Tweets per month per user:")
-paste("Mean =", monthly_tweets_mean)
-paste("Standard Deviation =", monthly_tweets_sd)
-paste("Median =", monthly_tweets_median)
-paste("Range =", monthly_tweets_min, "to", monthly_tweets_max)
+paste("Tweets per month per user:"); paste("Mean =", monthly_tweets_mean); paste("Standard Deviation =", monthly_tweets_sd); paste("Median =", monthly_tweets_median); paste("Range =", monthly_tweets_min, "to", monthly_tweets_max)
 ```
 
 *Minimal participation.* Look at one-time tweeters.
@@ -123,11 +119,13 @@ freq_tweeters_RT <- edchat %>%
     arrange(desc(retweets_per_month))
 
 RT_only <- freq_tweeters_RT %>% nrow()
-paste("Tweeters who contributed only by retweeting #Edchat tweets:", 
+paste("Tweeters who contributed by retweeting #Edchat tweets:", 
       RT_only,
       "(", round(100 * RT_only / n_tweeters, 2), "% )"
       )
+```
 
+```{r, include=TRUE, echo=FALSE}
 one_timers_RT_only <- freq_tweeters_RT %>% filter(retweets_made_edchat==1)
 paste("Tweeters who contributed only one retweet to #Edchat:", 
       nrow(one_timers_RT_only),
@@ -148,9 +146,10 @@ n_tweeters_no_RT <- edchat %>%
     pull(user_id) %>% 
     unique() %>% 
     length()
-paste("Number of unique tweets (no retweets):", n_tweets_no_RT)
-paste("Number of unique tweeters (no retweets):", n_tweeters_no_RT)
+paste("Number of unique tweets (no retweets):", n_tweets_no_RT); paste("Number of unique tweeters (no retweets):", n_tweeters_no_RT)
+```
 
+```{r, include=TRUE, echo=FALSE}
 freq_tweeters_no_RT <- edchat %>% 
     filter(!is_retweet) %>%
     pull(user_id) %>% 
@@ -167,11 +166,7 @@ monthly_tweets_median_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% median %
 monthly_tweets_min_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% min %>% round(2)
 monthly_tweets_max_no_RT <- freq_tweeters_no_RT$tweets_per_month %>% max %>% round(2)
 
-paste("Tweets per month per user (no retweets):")
-paste("Mean =", monthly_tweets_mean_no_RT)
-paste("Standard Deviation =", monthly_tweets_sd_no_RT)
-paste("Median =", monthly_tweets_median_no_RT)
-paste("Range =", monthly_tweets_min_no_RT, "to", monthly_tweets_max_no_RT)
+paste("Original tweets per month per user (no retweets):"); paste("Mean =", monthly_tweets_mean_no_RT); paste("Standard Deviation =", monthly_tweets_sd_no_RT); paste("Median =", monthly_tweets_median_no_RT); paste("Range =", monthly_tweets_min_no_RT, "to", monthly_tweets_max_no_RT)
 ```
 
 *Minimal participation.* Look at one-time tweeters (no retweets).
@@ -202,20 +197,30 @@ freq_replies <- edchat %>%
            reply_count = Freq) %>%
     arrange(desc(reply_count))
 
+n_reply_tweets <- sum(freq_replies$reply_count)
+n_reply_tweeters <- nrow(freq_replies)
+n_no_reply_no_RT_tweeters <- n_tweeters_no_RT - nrow(freq_replies)
+p_reply_tweeters <- round(100 * n_reply_tweeters / n_tweeters_no_RT, 2)
+p_reply_tweeters_of_all <- round(100 * n_reply_tweeters / n_tweeters, 2)
+
 replies_mean <- freq_replies$reply_count %>% mean %>% round(2)
 replies_sd <- freq_replies$reply_count %>% sd %>% round(2)
 replies_median <- freq_replies$reply_count %>% median %>% round(2)
 replies_min <- freq_replies$reply_count %>% min %>% round(2)
 replies_max <- freq_replies$reply_count %>% max %>% round(2)
 
-paste("Replies-per-tweeter statistics:")
-paste(n_tweeters_no_RT - nrow(freq_replies), "did not reply to anyone.")
-paste("Mean =", replies_mean)
-paste("Standard Deviation =", replies_sd)
-paste("Median =", replies_median)
-paste("Range =", replies_min, "to", replies_max)
+paste("Replies-per-tweeter statistics:"); paste(n_reply_tweeters, "(", p_reply_tweeters, "% of original tweeters and", p_reply_tweeters_of_all, "% of all tweeters) replied to someone."); paste("Mean =", replies_mean); paste("Standard Deviation =", replies_sd); paste("Median =", replies_median); paste("Range =", replies_min, "to", replies_max)
+```
 
-round((100 * (n_tweeters_no_RT - nrow(freq_replies)) / n_tweeters_no_RT), 2)
+```{r, include=TRUE, echo=FALSE}
+one_time_repliers <- freq_replies %>% filter(reply_count==1)
+multi_repliers <- freq_replies %>% filter(reply_count>1)
+
+n_multi_repliers <- nrow(multi_repliers)
+p_multi_repliers <- round(100* n_multi_repliers / n_tweeters_no_RT, 2)
+p_multi_repliers_of_all <- round(100* n_multi_repliers / n_tweeters, 2)
+
+paste(n_multi_repliers, "(" , p_multi_repliers, "% of original tweeters and", p_multi_repliers_of_all, "% of all #Edchat tweeters) replied more than once.")
 ```
 
 **RQ2b: Following/Followers Ratio**
@@ -269,12 +274,6 @@ paste("Range =", following_ratio_min, "to", following_ratio_max)
 Second, reconstruct threads of replies extending beyond #Edchat, starting by looking up tweets that have been replied to but are not in #Edchat.
 
 ```{r, include=FALSE}
-all_replies <- edchat %>% filter(!is_retweet) %>% filter(!is.na(reply_to_status_id))
-known_replies <- all_replies %>% filter(reply_to_status_id %in% edchat_expanded$status_id)
-unknown_replies <- all_replies %>% filter(!(reply_to_status_id %in% edchat_expanded$status_id))
-
-paste("Total tweets:", nrow(edchat_expanded)); paste("All replies:", nrow(all_replies)); paste("Known:", nrow(known_replies)); paste("Unknown:", nrow(unknown_replies))
-
 ## Just run once: very time consuming process. Takes 117 iterations, left with 291 unknown tweets.
 #edchat_expanded <- edchat %>% filter(!is_retweet)
 #new_tweets = unknown_replies
@@ -306,13 +305,28 @@ edchat_expanded <- read.csv("edchat_expanded.csv",
                                           text='character'
                                           )
                             )
+#length(unique(edchat_expanded$status_id))
 ```
 
+**What proportion of replies contain the #Edchat hashtag?**
 
+```{r, include=FALSE}
+freq_replies_expanded <- edchat_expanded %>% 
+    pull(reply_to_status_id) %>% 
+    table() %>% 
+    as.data.frame() %>% 
+    rename(status_id = ".",
+           reply_count = Freq) %>%
+    mutate(status_id = as.character(status_id)) %>% 
+    arrange(desc(reply_count))
+```
 
-```{r, include=TRUE, echo=FALSE}
+```{r, include=FALSE}
 edchat_expanded <- edchat_expanded %>% 
-    mutate(is_head = ifelse(is.na(reply_to_status_id) & 
+    left_join(freq_replies, by='status_id') %>% 
+    mutate(reply_count = ifelse(is.na(reply_count), 0, reply_count),
+           in_edchat = ifelse(str_detect(text, "#[Ee][Dd][Cc][Hh][Aa][Tt]"), TRUE, FALSE),
+           is_head = ifelse(is.na(reply_to_status_id) & 
                              (status_id %in% edchat_with_replies$reply_to_status_id),
                          TRUE, 
                          FALSE),
@@ -320,35 +334,354 @@ edchat_expanded <- edchat_expanded %>%
                              !(status_id %in% edchat_with_replies$reply_to_status_id),
                          TRUE, 
                          FALSE),
-           text = as.character(text)
+           word_count = str_count(text, "\\s+") + 1,
+           character_count = str_length(text),
+           hashtag_count = str_count(text, hashtag_regex),
+           url_count = str_count(text, url_regex)
            )
+```
+
+```{r, include=TRUE, echo=FALSE}
 all_replies <- edchat_expanded %>% filter(!is.na(reply_to_status_id))
-known_replies <- all_replies %>% filter(reply_to_status_id %in% edchat_expanded$status_id)
-unknown_replies <- all_replies %>% filter(!(reply_to_status_id %in% edchat_expanded$status_id))
+known_replies <- all_replies %>% 
+    filter(reply_to_status_id %in% edchat_expanded$status_id)
+unknown_replies <- all_replies %>% 
+    filter(!(reply_to_status_id %in% edchat_expanded$status_id))
 
-paste("Total tweets:", nrow(edchat_expanded)); paste("All replies:", nrow(all_replies)); paste("Known replies:", nrow(known_replies)); paste("Unavailable replies:", nrow(unknown_replies)); paste("Number of thread heads:", length(which(edchat_expanded$is_head))); paste("Number of thread tails:", length(which(edchat_expanded$is_tail)))
+paste("Total tweets:", nrow(edchat_expanded)); paste("All replies:", nrow(all_replies)); paste("Known replies:", nrow(known_replies)); paste("Unavailable replies:", nrow(unknown_replies))
+```
+
+**Frequency of replies with keyword #edchat vs. without**
+
+```{r, include=TRUE, echo=FALSE}
+n_all_replies <- nrow(all_replies)
+n_not_replies <- nrow(edchat_expanded) - n_all_replies
+n_replies_with_edchat <- nrow(filter(all_replies, in_edchat==TRUE))
+n_replies_without_edchat <- nrow(filter(all_replies, in_edchat==FALSE))
+p_replies_with_edchat <- round(100 * n_replies_with_edchat / nrow(all_replies), 2)
+
+n_all_with_edchat <- nrow(filter(edchat_expanded, in_edchat==TRUE))
+n_all_without_edchat <- nrow(filter(edchat_expanded, in_edchat==FALSE))
+
+p_in_replies <- 100 * n_replies_with_edchat / n_all_with_edchat
+p_out_replies <- 100 * n_replies_without_edchat / n_all_without_edchat
+
+paste("There are", n_all_replies, "tweets in the #Edchat reply network.", n_replies_with_edchat, "of these (", p_replies_with_edchat, "% ) contain the keyword text #edchat.")
+```
+
+Create a contingency table and test significance of differences.
+
+```{r, include=TRUE, echo=FALSE}
+matrix_replies <- matrix(c(n_replies_with_edchat,
+                           n_replies_without_edchat,
+                           n_all_with_edchat - n_replies_with_edchat,
+                           n_all_without_edchat - n_replies_without_edchat
+                           ), 
+                         ncol=2,
+                         dimnames = list(c("with #edchat", "without #edchat"),
+                                         c("reply", "original tweet"))
+                         )
+sig_replies <- chisq.test(matrix_replies)
+x2_replies  <- sig_replies$statistic %>% as.vector()
+df_replies <- sig_replies$parameter %>% as.vector()
+p_replies  <- sig_replies$p.value %>% as.vector()
+d_replies  <- compute.es::chies(x2_replies, n = nrow(edchat_expanded))$d %>% abs()
+
+paste("Tweets containing the keyword #edchat were replies", round(p_in_replies,2), "% of the time. Tweets missing the hashtag were replies ", round(p_out_replies,2), "% of the time. The two-way table test of association between the presence of the keyword #edchat and tweet type had a chi-square value of", round(x2_replies,2), ", (df =", df_replies, " ), p = ", round(p_replies,4), "and an effect size d =", round(d_replies,2), ".")
+```
+
+Print the contingency table and the results of the chi-square test. 
+
+```{r, include=TRUE, echo=FALSE}
+matrix_replies; sig_replies
+```
+
+**In the #Edchat reply network, how do tweets with the keyword #edchat compare to those missing the hashtag?**
+
+```{r, include=FALSE}
+replies_with_edchat <- edchat_expanded %>% 
+    filter(!is.na(reply_to_status_id), in_edchat==TRUE)
+replies_without_edchat <- edchat_expanded %>% 
+    filter(!is.na(reply_to_status_id), in_edchat==FALSE)
+```
+
+1. Look at the difference in average number of *words* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_wordcount <- mean(replies_with_edchat$word_count)
+m_out_wordcount <- mean(replies_without_edchat$word_count)
+sig_wordcount <- t.test(x=replies_with_edchat$word_count, y=replies_without_edchat$word_count)
+t_wordcount <- sig_wordcount$statistic %>% as.vector()
+p_wordcount <- sig_wordcount$p.value %>% as.vector()
+d_wordcount <- compute.es::tes(t_wordcount, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_word <- c(m_in_wordcount, m_out_wordcount, t_wordcount, p_wordcount, d_wordcount)
+```
+
+2. Look at the difference in average number of *characters* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_charcount <- mean(str_length(replies_with_edchat$text))
+m_out_charcount <- mean(str_length(replies_without_edchat$text))
+sig_charcount <- t.test(x=str_length(replies_with_edchat$text),
+                        y=str_length(replies_without_edchat$text))
+t_charcount <- sig_charcount$statistic %>% as.vector()
+p_charcount <- sig_charcount$p.value %>% as.vector()
+d_charcount <- compute.es::tes(t_charcount, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_character <- c(m_in_charcount, m_out_charcount, t_charcount, p_charcount, d_charcount)
+```
+
+3. Look at the difference in text-polarity *sentiment score* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+in_sentiment <- sentiment(replies_with_edchat$text) %>% 
+    group_by(element_id) %>% 
+    summarize(word_count = sum(word_count), 
+              sentiment = sum(sentiment))
+out_sentiment <- sentiment(replies_without_edchat$text) %>%
+    group_by(element_id) %>% 
+    summarize(word_count = sum(word_count), 
+              sentiment = sum(sentiment))
+
+m_in_sentiment <- mean(in_sentiment$sentiment)
+m_out_sentiment <- mean(out_sentiment$sentiment)
+sig_sentiment <- t.test(x=in_sentiment$sentiment,
+                        y=out_sentiment$sentiment)
+t_sentiment <- sig_sentiment$statistic %>% as.vector()
+p_sentiment <- sig_sentiment$p.value %>% as.vector()
+d_sentiment <- compute.es::tes(t_sentiment, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_sentiment <- c(m_in_sentiment, m_out_sentiment, t_sentiment, p_sentiment, d_sentiment)
+```
+
+4. Look at the difference in average number of *hashtags* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_hashtags <- mean(replies_with_edchat$hashtag_count)
+m_out_hashtags <- mean(replies_without_edchat$hashtag_count)
+sig_hashtags <- t.test(x=replies_with_edchat$hashtag_count,
+                       y=replies_without_edchat$hashtag_count)
+t_hashtags <- sig_hashtags$statistic %>% as.vector()
+p_hashtags <- sig_hashtags$p.value %>% as.vector()
+d_hashtags <- compute.es::tes(t_hashtags, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_hashtag <- c(m_in_hashtags, m_out_hashtags, t_hashtags, p_hashtags, d_hashtags)
+```
+
+5. Look at the difference in average number of *hyperlinks* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_hyperlinks <- mean(replies_with_edchat$url_count)
+m_out_hyperlinks <- mean(replies_without_edchat$url_count)
+sig_hyperlinks <- t.test(x=replies_with_edchat$url_count,
+                       y=replies_without_edchat$url_count)
+t_hyperlinks <- sig_hyperlinks$statistic %>% as.vector()
+p_hyperlinks <- sig_hyperlinks$p.value %>% as.vector()
+d_hyperlinks <- compute.es::tes(t_hyperlinks, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_hyperlinks <- c(m_in_hyperlinks, m_out_hyperlinks, t_hyperlinks, p_hyperlinks, d_hyperlinks)
+```
+
+6. Look at the difference in average number of *likes* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_likes <- mean(replies_with_edchat$favorite_count)
+m_out_likes <- mean(replies_without_edchat$favorite_count)
+sig_likes <- t.test(x=replies_with_edchat$favorite_count,
+                    y=replies_without_edchat$favorite_count)
+t_likes <- sig_likes$statistic %>% as.vector()
+p_likes <- sig_likes$p.value %>% as.vector()
+d_likes <- compute.es::tes(t_likes, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_likes <- c(m_in_likes, m_out_likes, t_likes, p_likes, d_likes)
+```
+
+7. Look at the difference in average number of *retweets* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_retweets <- mean(replies_with_edchat$retweet_count)
+m_out_retweets <- mean(replies_without_edchat$retweet_count)
+sig_retweets <- t.test(x=replies_with_edchat$retweet_count,
+                    y=replies_without_edchat$retweet_count)
+t_retweets <- sig_retweets$statistic %>% as.vector()
+p_retweets <- sig_retweets$p.value %>% as.vector()
+d_retweets <- compute.es::tes(t_retweets, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_retweets <- c(m_in_retweets, m_out_retweets, t_retweets, p_retweets, d_retweets)
+```
+
+8. Look at the difference in average number of *replies* per tweet.
+
+```{r, include=TRUE, echo=FALSE}
+m_in_replies <- mean(replies_with_edchat$reply_count)
+m_out_replies <- mean(replies_without_edchat$reply_count)
+sig_replies <- t.test(x=replies_with_edchat$reply_count,
+                    y=replies_without_edchat$reply_count)
+t_replies <- sig_replies$statistic %>% as.vector()
+p_replies <- sig_replies$p.value %>% as.vector()
+d_replies <- compute.es::tes(t_replies, 
+                               n.1 = n_replies_with_edchat, 
+                               n.2 = n_replies_without_edchat, verbose=FALSE)$d %>%
+    abs()
+row_replies <- c(m_in_replies, m_out_replies, t_replies, p_replies, d_replies)
+```
+
+```{r, include=TRUE, echo=FALSE}
+results_table <- row_word %>%
+    rbind(row_character) %>% 
+    rbind(row_sentiment) %>%
+    rbind(row_hashtag) %>% 
+    rbind(row_hyperlinks) %>% 
+    rbind(row_likes) %>% 
+    rbind(row_retweets) %>% 
+    rbind(row_replies) %>%
+    as.data.frame() %>%
+    round(4)
+rownames(results_table) <- c("Words", "Characters", "Sentiment",
+                             "Hashtags", "Hyperlinks",
+                             "Likes", "Retweets", "Replies")
+colnames(results_table) <- c("Mean (in #Edchat)", "Mean (outside #Edchat)",
+                             "t", "p", "d")
+results_table
+#write.csv(results_table, "results_table.csv", row.names=TRUE)
+```
+
+**Frequency of self-replies with keyword #edchat vs. without**
+
+```{r, include=TRUE, echo=FALSE}
+n_in_self_replies <- replies_with_edchat %>%
+    filter(user_id == reply_to_user_id) %>%
+    nrow()
+p_in_self_replies <- 100 * n_in_self_replies / n_replies_with_edchat
+
+n_out_self_replies <- replies_without_edchat %>%
+    filter(user_id == reply_to_user_id) %>%
+    nrow()
+p_out_self_replies <- 100 * n_out_self_replies / n_replies_without_edchat
+```
+
+Create a contingency table and test significance of differences.
+
+```{r, include=TRUE, echo=FALSE}
+matrix_self_replies <- matrix(c(n_in_self_replies,
+                                n_out_self_replies,
+                                n_replies_with_edchat - n_in_self_replies,
+                                n_replies_without_edchat - n_out_self_replies
+                                ), 
+                              ncol=2,
+                              dimnames = list(c("with #edchat", "without #edchat"),
+                                              c("self-reply", "reply to others"))
+                              )
+
+sig_self_replies <- chisq.test(matrix_self_replies)
+x2_self_replies  <- sig_self_replies$statistic %>% as.vector()
+df_self_replies <- sig_self_replies$parameter %>% as.vector()
+p_self_replies  <- sig_self_replies$p.value %>% as.vector()
+d_self_replies  <- compute.es::chies(x2_self_replies, n = n_all_replies)$d %>% abs()
+
+paste("Replies containing the keyword #edchat were self-replies", round(p_in_self_replies,2), "% of the time. Replies missing the hashtag were self-replies ", round(p_out_self_replies,2), "% of the time. The two-way table test of association between the presence of the keyword #edchat and tweet type had a chi-square value of", round(x2_self_replies,2), ", (df =", df_self_replies, " ), p = ", round(p_self_replies,4), "and an effect size d =", round(d_self_replies,2), ".")
+```
+
+Print the contingency table and the results of the chi-square test. 
+
+```{r, include=TRUE, echo=FALSE}
+matrix_self_replies; sig_self_replies
+```
+
+The p-value is significant for the two-way contingency table chi-square test, indicating that some association between the variables is present. I conclude that the increased likelihood of self-replies in tweets not containing the keyword "#edchat" emphasis is not due to random variation. 
+
+```{r, include=TRUE, echo=FALSE}
+repliers_with_edchat <- replies_with_edchat %>% 
+    distinct(user_id, .keep_all = TRUE) %>%
+    select(user_id, screen_name, 
+           place_url, place_name, place_full_name, place_type, 
+           country, country_code, geo_coords, coords_coords, bbox_coords,
+           name, location, description, url, 
+           followers_count, friends_count, listed_count, statuses_count, favourites_count,
+           account_created_at, verified, profile_url, profile_expanded_url, 
+           account_lang
+           )
+replies_with_edchat %>% nrow(); repliers_with_edchat %>% nrow()
+```
+
+```{r, include=TRUE, echo=FALSE}
+repliers_without_edchat <- replies_without_edchat %>% 
+    distinct(user_id, .keep_all = TRUE) %>%
+    select(user_id, screen_name, 
+           place_url, place_name, place_full_name, place_type, 
+           country, country_code, geo_coords, coords_coords, bbox_coords,
+           name, location, description, url, 
+           followers_count, friends_count, listed_count, statuses_count, favourites_count,
+           account_created_at, verified, profile_url, profile_expanded_url, 
+           account_lang
+           )
+replies_without_edchat %>% nrow(); repliers_without_edchat %>% nrow()
+```
+
+```{r, include=TRUE, echo=FALSE}
+n_all_repliers <- length(unique(all_replies$user_id))
+paste("The #Edchat reply network contained", n_all_replies, "replies from", n_all_repliers, "repliers.")
+```
+
+```{r, include=TRUE, echo=FALSE}
+`%notin%` <- Negate(`%in%`)
+
+repliers_both <- repliers_with_edchat %>% 
+    filter(user_id %in% repliers_without_edchat$user_id)
+repliers_with_only <- repliers_with_edchat %>%
+    filter(user_id %notin% repliers_without_edchat$user_id)
+repliers_without_only <- repliers_without_edchat %>% 
+    filter(user_id %notin% repliers_with_edchat$user_id)
+nrow(repliers_both); nrow(repliers_with_only); nrow(repliers_without_only)
+
+paste(nrow(repliers_with_only), "contributors to the #Edchat reply network always included the #Edchat hashtag in their replies;", nrow(repliers_both), "contributors sometimes included the hashtag, sometimes not;", "and", nrow(repliers_without_only), "contributors never included the #Edchat hashtag in their replies.")
 ```
 
 
 
-```{r, include=TRUE}
-
-## What proportion of replies have #Edchat hashtag?
-
-## Length of reply threads?
-
-
-```
 
 Next, create the network graph of #Edchat replies using the `igraph` package.
 
-```{r, include=TRUE}
-reply_graph <- known_replies %>% 
-        select(user_id, reply_to_user_id) %>%
-        as.matrix() %>%
-        graph_from_edgelist(directed=TRUE) %>% 
-        set_vertex_attr(name='degree', value=degree(., mode='total', loops=FALSE))
-#reply_graph %>% summary()
+```{r, include=TRUE, echo=FALSE}
+length(unique(c(all_replies$user_id, all_replies$reply_to_user_id)))
+length(c(all_replies$user_id, all_replies$reply_to_user_id))
+
+
+freq_all_reply_nodes <- all_replies$user_id %>% 
+    c(all_replies$reply_to_user_id) %>% 
+    table() %>% 
+    as.data.frame() %>% 
+    rename(user_id = ".",
+           count = Freq) %>%
+    mutate(user_id = as.character(user_id)) %>% 
+    arrange(desc(count))
+
+edge_in_edchat <- all_replies %>%
+    mutate(in_edchat = ifelse(in_edchat, 1, 0)) %>%
+    pull(in_edchat)
+
+reply_graph <- all_replies %>% 
+    select(user_id, reply_to_user_id) %>%
+    as.matrix() %>%
+    graph_from_edgelist(directed=TRUE) %>% 
+    set_vertex_attr(name='degree', value=degree(., mode='total', loops=FALSE)) %>%
+    set_edge_attr(name='in_out', value=edge_in_edchat)  #edge.betweenness()
+reply_graph %>% summary()
 ```
 
 Then calculate network statistics.
@@ -359,14 +692,14 @@ reply_graph %>% V() %>% length()  # number of vertices/nodes
 reply_graph %>% gsize()  # number of edges
 #reply_graph %>% diameter(directed=TRUE, unconnected=TRUE)  # the length of the longest geodesic (max distance between two vertices)
 
-(reply_graph %>% transitivity("global") * 100) %>% round(2)  
+round(reply_graph %>% transitivity("global") * 100, 2)  
 ## The balance of connections. Also called the clustering coefficient.
 ## The probability that the adjacent vertices of a vertex are connected. 
 ## When the clustering coefficient is large it implies that a graph is highly clustered around a few nodes, 
 ## When it is low it implies that the links in the graph are relatively evenly spread among all the nodes. (Hogan, 2017)
 
 
-(reply_graph %>% reciprocity * 100) %>% round(2)  
+round(reply_graph %>% reciprocity * 100, 2)  
 ## The proportion of mutual connections (in a directed network).
 ## The probability that the opposite counterpart of a directed edge is also included in the graph.
 
@@ -377,34 +710,43 @@ reply_graph %>% vertex_attr('degree') %>% sd() %>% round(2)
 reply_graph %>% vertex_attr('degree') %>% median()
 reply_graph %>% vertex_attr('degree') %>% min()
 reply_graph %>% vertex_attr('degree') %>% max()
+
+reply_graph %>% edge_attr('in_out') %>% mean() %>% round(2)
 ```
 
 Visualization with Gephi
 
 ```{r, include=TRUE}
-replies_edgelist <- known_replies %>% 
-        select(user_id, reply_to_user_id) %>%
-        filter(user_id != reply_to_user_id) %>% 
-        rename(Source = user_id,
-               Target = reply_to_user_id) %>%
-        as.matrix() 
-#write.csv(replies_edgelist, "replies_edgelist.csv", row.names=FALSE)
-#dim(replies_edgelist)
+replies_edgelist3 <- all_replies %>% 
+    select(user_id, reply_to_user_id, in_edchat) %>%
+    filter(user_id != reply_to_user_id) %>% 
+    as.data.frame() %>%
+    rename(Source = user_id,
+           Target = reply_to_user_id
+           ) %>%
+    mutate(Source = pmin(Source, Target),
+           Target = pmax(Source, Target)
+           ) %>% 
+    group_by(Source) %>% mutate(Source_n = n()) %>% ungroup() %>%
+    group_by(Target) %>% mutate(Target_n = n()) %>% ungroup() %>%
+    group_by(Source, Target) %>% mutate(edge_n = n())
+nrow(replies_edgelist3)
+#write.csv(replies_edgelist3, "replies_edgelist3.csv", row.names=FALSE)
 ```
 
 Visualization with igraph in R
 
 ```{r, include=TRUE}
-replies_graph_viz <- known_replies %>% 
-        select(user_id, reply_to_user_id)%>%
-        filter(user_id != reply_to_user_id) %>%  
-        as.matrix() %>% 
-        graph_from_edgelist(directed=TRUE) %>% 
-        set_vertex_attr(name='degree', value=degree(., mode='total', loops=FALSE))
-#subreddit_graph_viz %>% summary()
-#subreddit_graph %>% summary()
+reply_graph_viz <- known_replies %>% 
+    select(user_id, reply_to_user_id) %>%
+    filter(user_id != reply_to_user_id) %>%
+    as.matrix() %>% 
+    graph_from_edgelist(directed=TRUE) %>% 
+    set_vertex_attr(name='degree', value=degree(., mode='total', loops=FALSE))
+reply_graph_viz %>% summary()
+reply_graph %>% summary()
 
-layout <- replies_graph_viz %>% create_layout(layout = 'drl') 
+layout <- reply_graph_viz %>% create_layout(layout = 'drl') 
 
 ggraph(layout) +
         geom_edge_link(alpha = .2, width=.3) +
@@ -422,71 +764,257 @@ ggraph(layout) +
 #ggsave("r-output/edchat_network_visualization_in_R.png", width = 1 * 10, height = 1 * 10)
 ```
 
-Thread-Building from Bob Rudis (see https://rud.is/b/2018/01/15/cant-stop-at-21-twitter-recipe-22-tying-up-loose-threads/).
-
-```{r, include=TRUE}
-threads_dfs <- igraph::decompose(reply_graph) %>%
-    purrr::map(igraph::as_data_frame)
-
-```
-
-
-
-
-
-
-
-
-
-```{r, include=FALSE}
-    mutate(like_mean = mean(favorite_count),
-           retweet_mean = retweet_count[!is.na(retweet_count)] %>% mean(),
-           reply_mean = mean(reply_count),
-           hashtag_total = sum(hashtag_count),
-           hashtag_mean = mean(hashtag_count),
-           url_total = sum(url_count),
-           url_mean = mean(url_count),
-           tweets_with_hashtags = (sum(hashtag_inclusion) / n()) * 100,
-           tweets_with_url = (sum(url_inclusion) / n()) * 100
-              ) %>%
-    slice(1) %>%
-    full_join(freq_tweeters, by='user_id') %>%
-    select(user_id, screen_name,
-           tweets_made_all, tweets_made_edchat,
-           z, edchat_prop,
-           like_mean, retweet_mean, reply_mean,
-           following_ratio, friends_count, followers_count,
-           hashtag_total, hashtag_mean, tweets_with_hashtags, 
-           url_total, url_mean, tweets_with_url,
-           tweets_liked_all,
-           source, verified,
-           profile_description, profile_url
-           ) %>%
-    arrange(desc(z))
-
-write.csv(edchat_tweeters, "edchat_tweeters.csv", row.names=FALSE)
-```
-
-```{r, include=FALSE}
-edchat_tweeters <- read.csv("edchat_tweeters.csv", 
-                            header=TRUE, 
-                            colClasses= c(status_id='character',
-                                          reply_to_status_id='character',
-                                          user_id='character',
-                                          reply_to_user_id='character',
-                                          text='character'
-                                          )
-                            )
-```
-
-
-*Level of interaction*: Because spammers tend to broadcast messages, which others frequently ignore (Lin & Huang, 2013), spam accounts can also be identified by the absence of interaction with others. Relatively easy metrics researchers can use to measure interaction is to examine the extent to which a users’ tweets result in likes, retweets, and replies.
-
-*Following vs. followers*: Spammers often follow many other users, but themselves have relatively low number of followers. Researchers can quickly measure this phenomenon by calculating the ratio of following to followers for users in their dataset.
-
-*Hashtags and hyperlinks*: Many spammers share hyperlinks in an attempt to drive traffic to certain websites (e.g., Lin & Huang, 2013) For instance, a tweet might advertise goods for sale and include a hyperlink to the website where the actual purchase would occur. Researchers can therefore analyze the raw number of links, the percentage of tweets that contain a link, or the average number of links per tweet.
-
 
 ## RQ3: What are participants talking about with each other in #Edchat?
 
+Take samples (n = 100) of replies and repliers with keyword #edchat and without.
+
+```{r, include=TRUE, echo=FALSE}
+set.seed(6292019)
+sample_replies_with_edchat <- sample_n(replies_with_edchat, 100)
+#write.csv(sample_replies_with_edchat, "sample_replies_with_edchat.csv", row.names=FALSE)
+sample_replies_without_edchat <- sample_n(replies_without_edchat, 100)
+#write.csv(sample_replies_without_edchat, "sample_replies_without_edchat.csv", row.names=FALSE)
+sample_repliers_with_edchat <- sample_n(repliers_with_edchat, 100)
+#write.csv(sample_repliers_with_edchat, "sample_repliers_with_edchat.csv", row.names=FALSE)
+sample_repliers_without_edchat <- sample_n(repliers_without_edchat, 100)
+#write.csv(sample_repliers_without_edchat, "sample_repliers_without_edchat", row.names=FALSE)
+```
+
+
+
+```{r, include=FALSE}
+coded_sample_with_og <- read.csv("sample_replies_with_edchat_coded.csv", 
+                              header=TRUE, 
+                              colClasses= c(status_id='character',
+                                            reply_to_status_id='character',
+                                            user_id='character',
+                                            reply_to_user_id='character',
+                                            text='character'
+                                            )
+                              )
+coded_sample_without_og <- read.csv("sample_replies_without_edchat_coded.csv", 
+                                 header=TRUE, 
+                                 colClasses= c(status_id='character',
+                                               reply_to_status_id='character',
+                                               user_id='character',
+                                               reply_to_user_id='character',
+                                               text='character'
+                                               )
+                                 )
+```
+
+```{r, include=FALSE}
+coded_sample_with <- coded_sample_with_og %>%
+    mutate(self = ifelse(is.na(self), 0, 1),
+           others = ifelse(is.na(others), 0, 1),
+           mutual = ifelse(is.na(mutual), 0, 1),
+           misc = ifelse(is.na(misc), 0, 1),
+           cognitive = ifelse(is.na(cognitive), 0, 1),
+           interactive = ifelse(is.na(interactive), 0, 1),
+           social = ifelse(is.na(social), 0, 1)
+           )
+coded_sample_without <- coded_sample_without_og %>%
+    mutate(self = ifelse(is.na(self), 0, 1),
+           others = ifelse(is.na(others), 0, 1),
+           mutual = ifelse(is.na(mutual), 0, 1),
+           misc = ifelse(is.na(misc), 0, 1),
+           cognitive = ifelse(is.na(cognitive), 0, 1),
+           interactive = ifelse(is.na(interactive), 0, 1),
+           social = ifelse(is.na(social), 0, 1)
+           )
+```
+
+```{r, include=TRUE, echo=FALSE}
+purpose_sums_with <- coded_sample_with %>%
+    summarize(self = sum(self),
+              others = sum(others),
+              mutual = sum(mutual),
+              miscellaneous = sum(misc)
+              )
+purpose_sums_without <- coded_sample_without %>%
+    summarize(self = sum(self),
+              others = sum(others),
+              mutual = sum(mutual),
+              miscellaneous = sum(misc)
+              )
+matrix_purpose_sums <- purpose_sums_with %>%
+    rbind(purpose_sums_without) %>%
+    t() %>%
+    as.matrix()
+colnames(matrix_purpose_sums) <- c("with", "without")
+
+sig_purpose <- chisq.test(matrix_purpose_sums)
+x2_purpose  <- sig_purpose$statistic %>% as.vector()
+df_purpose <- sig_purpose$parameter %>% as.vector()
+p_purpose  <- sig_purpose$p.value %>% as.vector()
+d_purpose  <- compute.es::chies(x2_purpose, n = 200)$d %>% abs()
+
+paste("The two-way table test of association between the presence of the keyword #edchat and tweet purpose had a chi-square value of", round(x2_purpose,2), ", (df =", df_purpose, "), p = ", round(p_purpose,4), "and an effect size d =", round(d_purpose,2), ".")
+```
+
+Print the contingency table and the results of the chi-square test. 
+
+```{r, include=TRUE, echo=FALSE}
+matrix_purpose_sums; sig_purpose
+```
+
+```{r, include=TRUE, echo=FALSE}
+discourse_sums_with <- coded_sample_with %>%
+    summarize(cognitive = sum(cognitive),
+              interactive = sum(interactive),
+              social = sum(social)
+              )
+discourse_sums_without <- coded_sample_without %>%
+    summarize(cognitive = sum(cognitive),
+              interactive = sum(interactive),
+              social = sum(social)
+              )
+matrix_discourse_sums <- discourse_sums_with %>%
+    rbind(discourse_sums_without) %>%
+    t() %>%
+    as.matrix()
+colnames(matrix_discourse_sums) <- c("with", "without")
+
+sig_discourse <- chisq.test(matrix_discourse_sums)
+x2_discourse  <- sig_discourse$statistic %>% as.vector()
+df_discourse <- sig_discourse$parameter %>% as.vector()
+p_discourse  <- sig_discourse$p.value %>% as.vector()
+d_discourse  <- compute.es::chies(x2_discourse, n = 200)$d %>% abs()
+
+paste("The two-way table test of association between the presence of the keyword #edchat and tweet discourse had a chi-square value of", round(x2_discourse,2), ", (df =", df_discourse, "), p = ", round(p_discourse,4), "and an effect size d =", round(d_discourse,2), ".")
+```
+
+Print the contingency table and the results of the chi-square test. 
+
+```{r, include=TRUE, echo=FALSE}
+matrix_discourse_sums; sig_discourse
+```
+
+
+
+**Visualize these differences in tweet purpose and tweet discourse in replies with and without #Edchat**
+
+First, calculate margins of error (moe)
+
+
+```{r, include=FALSE}
+# for 95% confidence level, sample size = 100, rounded to 4 digits
+moe <- function(x, n=100, z=1.96, dig=4) {
+   x = x / 100 
+   y = round(z * sqrt(x * (1 - x) / n), digits=dig)
+   return(100 * y)
+}
+```
+
+**Purpose**
+
+```{r, includeFALSE}
+purposes <- rep(rownames(matrix_purpose_sums), 2)
+values_purp <- c(matrix_purpose_sums[,1], matrix_purpose_sums[,2])
+purpose_moe <- moe(matrix_purpose_sums)
+moe_purp <-c(purpose_moe[,1], purpose_moe[,2]) 
+in_or_out_purp <- factor(c(rep(colnames(matrix_purpose_sums)[1], 4),
+                           rep(colnames(matrix_purpose_sums)[2], 4)),
+                         levels=colnames(matrix_purpose_sums), ordered=TRUE)
+mydata_purp <- data.frame(purposes, values_purp, moe_purp, in_or_out_purp) %>%
+    mutate(purposes = factor(purposes, levels=c(rownames(matrix_purpose_sums))))
+mydata_purp
+```
+
+Now, display the plot.
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(data=mydata_purp, 
+       aes(x=purposes, y=values_purp, fill=in_or_out_purp)
+       ) +
+    geom_col(colour="grey20", 
+             width = 0.5,
+             position = position_dodge(width=0.5)
+             ) +
+    geom_errorbar(data=mydata_purp,
+                  aes(ymin = values_purp - moe_purp, 
+                      ymax = values_purp + moe_purp), 
+                  width = 0.2, 
+                  position = position_dodge(width=0.5)
+                  ) +
+    scale_fill_brewer(palette="Set1") +
+    theme(panel.background = element_rect(fill = "white", colour = "white"),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(size = .5, colour = "grey80"),
+          axis.title=element_text(size=28, family="serif"),
+          axis.text=element_text(size=22, family="serif"),
+          legend.title=element_text(size=28, family="serif"), 
+          legend.text=element_text(size=22, family="serif")
+          ) +
+    xlab("Tweet Purposes") + ylab("Proportion") + labs(fill="Keyword #Edchat") +
+    geom_hline(yintercept=0, color="black", size = .75)
+#ggsave("tweet_purpose_with_without.png", width = 1 * 16, height = 1 * 9)
+```
+
+**Discourse**
+
+```{r, includeFALSE}
+discourses <- rep(rownames(matrix_discourse_sums), 2)
+values_disc <- c(matrix_discourse_sums[,1], matrix_discourse_sums[,2])
+discourse_moe <- moe(matrix_discourse_sums)
+moe_disc <-c(discourse_moe[,1], discourse_moe[,2]) 
+in_or_out_disc <- factor(c(rep(colnames(matrix_discourse_sums)[1], 3),
+                           rep(colnames(matrix_discourse_sums)[2], 3)),
+                         levels=colnames(matrix_discourse_sums), ordered=TRUE)
+mydata_disc <- data.frame(discourses, values_disc, moe_disc, in_or_out_disc) %>%
+    mutate(discourses = factor(discourses, levels=c(rownames(matrix_discourse_sums))))
+mydata_disc
+```
+
+Now, display the plot.
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(data=mydata_disc, 
+       aes(x=discourses, y=values_disc, fill=in_or_out_disc)
+       ) +
+    geom_col(colour="grey20", 
+             width = 0.5,
+             position = position_dodge(width=0.5)
+             ) +
+    geom_errorbar(data=mydata_disc,
+                  aes(ymin = values_disc - moe_disc, 
+                      ymax = values_disc + moe_disc), 
+                  width = 0.2, 
+                  position = position_dodge(width=0.5)
+                  ) +
+    scale_fill_brewer(palette="Set1") +
+    theme(panel.background = element_rect(fill = "white", colour = "white"),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(size = .5, colour = "grey80"),
+          axis.title=element_text(size=28, family="serif"),
+          axis.text=element_text(size=22, family="serif"),
+          legend.title=element_text(size=28, family="serif"), 
+          legend.text=element_text(size=22, family="serif")
+          ) +
+    xlab("Tweet Discourses") + ylab("Proportion") + labs(fill="Keyword #Edchat") +
+    geom_hline(yintercept=0, color="black", size = .75)
+#ggsave("tweet_discourse_with_without.png", width = 1 * 16, height = 1 * 9)
+```
+
+
+
+```{r, include=TRUE, echo=FALSE}
+matrix_discourse_sums; moe(matrix_discourse_sums)
+```
+
+
+
+
+
+
+# Version/dependencies
+
+```{r, session-info}
+sessionInfo()
+```
 
