@@ -1,5 +1,5 @@
 ---
-title: "Twitter Edchat Inbteractions Project Setup"
+title: "Twitter Edchat Interactions Project Setup"
 author: "K. Bret Staudt Willet"
 date: "6/8/2019"
 output: 
