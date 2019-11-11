@@ -178,7 +178,7 @@ to_plot <- full_join(to_plot_tweets, to_plot_retweets,
         mutate(type = as.factor(type))
 ggplot(data = to_plot, mapping = aes(x=day, y=n, color=type)) +
         geom_point(size = 5, alpha=.6) + 
-        geom_smooth(method=lm, se=FALSE, size=1.5) +
+        geom_smooth(method='auto', se=TRUE, size=1.5) +
         xlab(NULL) +
         ylab("Daily Volume") +
 #        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -195,7 +195,7 @@ ggplot(data = to_plot, mapping = aes(x=day, y=n, color=type)) +
 ```
 
 ```{r save-figure1, include=FALSE}
-#ggsave("volume-over-time.png", width = 16, height = 9)
+ggsave("volume-over-time.png", width = 16, height = 9)
 ```
 
 ## RQ2. How do #Edchat tweets demonstrate a mishmash of content, if at all?
