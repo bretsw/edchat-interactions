@@ -653,7 +653,7 @@ matrix_purpose_sums <- purpose_sums_with %>%
     rbind(purpose_sums_without) %>%
     t() %>%
     as.matrix()
-colnames(matrix_purpose_sums) <- c("with", "without")
+colnames(matrix_purpose_sums) <- c("Hashtag", "Upstream")
 
 sig_purpose <- chisq.test(matrix_purpose_sums)
 x2_purpose  <- sig_purpose$statistic %>% as.vector()
@@ -677,7 +677,7 @@ matrix_discourse_sums <- discourse_sums_with %>%
     rbind(discourse_sums_without) %>%
     t() %>%
     as.matrix()
-colnames(matrix_discourse_sums) <- c("with", "without")
+colnames(matrix_discourse_sums) <- c("Hashtag", "Upstream")
 
 sig_discourse <- chisq.test(matrix_discourse_sums)
 x2_discourse  <- sig_discourse$statistic %>% as.vector()
@@ -738,9 +738,9 @@ ggplot(data=mydata_purp,
           legend.title=element_text(size=28, family="serif"), 
           legend.text=element_text(size=22, family="serif")
           ) +
-    xlab("Tweet Purposes") + ylab("Proportion") + labs(fill="Keyword #Edchat") +
+    xlab("Tweet Purposes") + ylab("Proportion") + labs(fill="Reply Type") +
     geom_hline(yintercept=0, color="black", size = .75)
-#ggsave("tweet_purpose_with_without.png", width = 1 * 16, height = 1 * 9)
+#ggsave("tweet_purpose.png", width = 1 * 16, height = 1 * 9)
 ```
 
 ```{r, include=TRUE, echo=FALSE}
@@ -796,9 +796,9 @@ ggplot(data=mydata_disc,
           legend.title=element_text(size=28, family="serif"), 
           legend.text=element_text(size=22, family="serif")
           ) +
-    xlab("Tweet Discourses") + ylab("Proportion") + labs(fill="Keyword #Edchat") +
+    xlab("Tweet Discourses") + ylab("Proportion") + labs(fill="Reply Type") +
     geom_hline(yintercept=0, color="black", size = .75)
-#ggsave("tweet_discourse_with_without.png", width = 1 * 16, height = 1 * 9)
+#ggsave("tweet_discourse.png", width = 1 * 16, height = 1 * 9)
 ```
 
 ```{r, include=TRUE, echo=FALSE}
